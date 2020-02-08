@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 
 namespace FriendOrganizer.UI.Wrapper
@@ -13,11 +14,12 @@ namespace FriendOrganizer.UI.Wrapper
 
         public T Model { get; }
 
-        protected virtual void SetValue<TValue>(TValue value, [CallerMemberName]string propertyName = null)
+        protected virtual void SetValue<TValue>(TValue value, 
+            [CallerMemberName]string propertyName = null)
         {
             typeof(T).GetProperty(propertyName).SetValue(Model, value);
             OnPropertyChanged(propertyName);
-            ValidatePropertyInteral(propertyName);
+            ValidatePropertyInteral(propertyName, value);
         }
 
         protected virtual TValue GetValue<TValue>([CallerMemberName]string propertyName = null)
@@ -25,14 +27,34 @@ namespace FriendOrganizer.UI.Wrapper
             return (TValue)typeof(T).GetProperty(propertyName).GetValue(Model);
         }
 
-        private void ValidatePropertyInteral(string propertyName)
+        private void ValidatePropertyInteral(string propertyName, object currentValue)
         {
             ClearErrors(propertyName);
 
-            var errors = ValidateProperty(propertyName);
-            if (errors!=null)
+            ValidateDataAnnotations(propertyName, currentValue);
+
+            ValidateCutomErrors(propertyName);
+        }
+
+        private void ValidateDataAnnotations(string propertyName, object currentValue)
+        {
+            var results = new List<ValidationResult>();
+            var context = new ValidationContext(Model) { MemberName = propertyName };
+
+            Validator.TryValidateProperty(currentValue, context, results);
+
+            foreach (var result in results)
             {
-                foreach(var error in errors)
+                AddError(propertyName, result.ErrorMessage);
+            }
+        }
+
+        private void ValidateCutomErrors(string propertyName)
+        {
+            var errors = ValidateProperty(propertyName);
+            if (errors != null)
+            {
+                foreach (var error in errors)
                 {
                     AddError(propertyName, error);
                 }
